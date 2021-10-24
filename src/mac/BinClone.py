@@ -123,7 +123,7 @@ def binclone_multiple_fast_mode(base, query) :
     start_time = time.time()
 
     base_path = "%s/%s" %(conf.BASE_SET_PATH, base)
-    query_path  = "%s/%s" %(conf.BASE_SET_PATH, query)
+    query_path  = "%s/%s" %(conf.QUERY_SET_PATH, query)
 
     base_list = bin.preprocessing(base_path)
     query_list = bin.preprocessing(query_path)
@@ -311,11 +311,13 @@ if __name__ == "__main__" :
         query_list = ut.listdir(conf.QUERY_SET_PATH)
 
         if conf.MULTIPLE_FAST_MODE :
-            for idx in range(len(base_list)) :
-                for jdx in range(idx + 1, len(base_list)) :
-                    print("Similarity check (%s vs %s) ----------------" %(base_list[idx], base_list[jdx]))
-                    a_time = binclone_multiple_fast_mode(base_list[idx], base_list[jdx])
-                    print("time : %f\n\n" %a_time)                    
+            for base in base_list :
+                for query in query_list :
+                    if(base == query) :
+                        continue
+                    print("Similarity check (%s vs %s) ----------------" %(base, query))
+                    a_time = binclone_multiple_fast_mode(base, query)
+                    print("time : %f\n\n" %a_time)
                     total_time += a_time
         else :
             for base in base_list :
@@ -323,7 +325,7 @@ if __name__ == "__main__" :
                     if(base == query) :
                         continue
                     print("Similarity check (%s vs %s) ----------------" %(base, query))
-                    a_time =binclone_multiple_mode(base, query)
+                    a_time = binclone_multiple_mode(base, query)
                     print("time : %f\n\n" %a_time)
                     total_time += a_time
 
