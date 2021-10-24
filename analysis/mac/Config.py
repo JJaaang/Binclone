@@ -1,0 +1,17 @@
+
+ROOT_PATH = "/Users/jjang/Desktop/Binclone"
+
+BASE_SET_PATH = ROOT_PATH +"/IDA_DB/base"
+TARGET_SET_PATH = ROOT_PATH +"/IDA_DB/target"
+RESULT_PATH = ROOT_PATH +"/res"
+LOG_PATH = RESULT_PATH + "/log"
+ANLAYSIS_PATH = RESULT_PATH+"/analysis"
+STEP1_PATH = ANLAYSIS_PATH+"/step1"
+STEP2_PATH = ANLAYSIS_PATH+"/step2"
+SCORE = 60
+
+WINDOW_SIZE = 15
+S_MIN = 0.6
+
+
+RANK = 5
