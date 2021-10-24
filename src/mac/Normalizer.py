@@ -167,7 +167,7 @@ def normalizer(function_path):
     Return Normalized instructions of function in function path.
     Normalized instructions, norm_func, are the form of NormInst class list.
     """
-    dump_fp = open(function_path, 'r+')
+    dump_fp = open(function_path, 'r+', encoding='utf8')
     norm_func = [] 
 
     log.init_norm_log(function_path)

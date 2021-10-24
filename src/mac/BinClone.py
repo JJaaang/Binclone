@@ -10,59 +10,58 @@ import copy
 from tqdm import tqdm
 
 
-
-
 #A_function and B_function are "function_info" class
-def compute_similarity(base_function, target_function) :
+def compute_similarity(base_function, query_function) :
 
-    # "Combined_features" function combines the feature of the base function and the target function
-    bin.combine_feature(base_function, target_function)
+    # "Combined_features" function combines the feature of the base function and the query function
+    bin.combine_feature(base_function, query_function)
 
     # A feature_vector_list is two-demensional list
     # row : region / columne : feature
     base_FV_list = bin.make_feature_vector(base_function)
-    target_FV_list = bin.make_feature_vector(target_function)
+    query_FV_list = bin.make_feature_vector(query_function)
 
-    bin.compute_median(base_FV_list, target_FV_list)
+    bin.compute_median(base_FV_list, query_FV_list)
 
     # The "make_binary_vector" function conducts filtering and binary vector making.
     base_BV_list = bin.make_binary_vector(base_FV_list)
-    target_BV_list = bin.make_binary_vector(target_FV_list)
+    query_BV_list = bin.make_binary_vector(query_FV_list)
 
     # The "compare_region_to_region" function computes the Binary vector similarity
-    result_matrix = bin.compare_region_to_region(base_BV_list, target_BV_list)
+    result_matrix = bin.compare_region_to_region(base_BV_list, query_BV_list)
 
     # The "clone_merger" function merge the consecutive clones that considered to be similar
     result = bin.clone_merger(result_matrix)
 
-
     return result
 
-def binclone_multiple_mode(base, target) :
+def binclone_multiple_mode(base, query) :
+
+    start_time = time.time()
 
     base_path = "%s/%s" %(conf.BASE_SET_PATH, base)
-    target_path  = "%s/%s" %(conf.TARGET_SET_PATH, target)
+    query_path  = "%s/%s" %(conf.QUERY_SET_PATH, query)
 
     base_list = bin.preprocessing(base_path)
-    target_list = bin.preprocessing(target_path)
+    query_list = bin.preprocessing(query_path)
 
     num_base = len(base_list)
-    num_tar = len(target_list)
+    num_query = len(query_list)
 
     # if function size is smaller than the WINDOW SIZE, the similarity check is not performed
     # and append the unchecked list
     unchecked_base_list = list()
-    unchecked_target_list = list()
+    unchecked_query_list = list()
 
     # the functions in checked list are functions whose size is longer than the window size
     # BinClone performs the similarity check only on the functions in the checked list
     checked_base_list = list()
-    checked_target_list = list()
+    checked_query_list = list()
 
     if not os.path.isdir(conf.RESULT_PATH) :
         os.mkdir(conf.RESULT_PATH)
 
-    log.init_log_result(False, base, target)
+    log.init_log_result(False, base, query)
 
     for base_func in base_list[:] :
         if base_func.len < conf.WINDOW_SIZE :
@@ -72,72 +71,76 @@ def binclone_multiple_mode(base, target) :
             checked_base_list.append("%s (%d)" %(base_func.name, base_func.len))
 
    
-    for tar_func in target_list[:] :
-        if tar_func.len < conf.WINDOW_SIZE :
-            unchecked_target_list.append("%s (%d)" %(tar_func.name, tar_func.len))
-            target_list.remove(tar_func)
+    for query_func in query_list[:] :
+        if query_func.len < conf.WINDOW_SIZE :
+            unchecked_query_list.append("%s (%d)" %(query_func.name, query_func.len))
+            query_list.remove(query_func)
         else :
-            checked_target_list.append("%s (%d)" %(tar_func.name, tar_func.len))
+            checked_query_list.append("%s (%d)" %(query_func.name, query_func.len))
 
     log.log_file_info(base, num_base, len(base_list), True)
-    log.log_file_info(target, num_tar, len(target_list), False)
+    log.log_file_info(query, num_query, len(query_list), False)
 
-    score_result = [[0]*len(target_list) for i in range(len(base_list))]
-
-    log.log_count[0][0] = len(target_list) * len(base_list)
-    log.log_count[0][1] = 0
+    score_result = [[0]*len(query_list) for i in range(len(base_list))]
 
     for b_idx in tqdm(range(len(base_list)), desc="base", ncols=100) :
         rank = list()
         base_func = base_list[b_idx]
-        for t_idx in tqdm(range(len(target_list)), desc="\ttarget", ncols=100, leave=False) :
-            tar_func = target_list[t_idx]
-            if conf.EXCLUDING_LENGTH_DIFFERENCE and ut.length_check(base_func.len, tar_func.len) : continue
+        for t_idx in tqdm(range(len(query_list)), desc="\tquery", ncols=100, leave=False) :
+            query_func = query_list[t_idx]
 
+            if conf.EXCLUDING_LENGTH_DIFFERENCE and ut.length_check(base_func.len, query_func.len) : 
+                score = 0 
+               
             else :
-                bin_res = compute_similarity(base_func, tar_func)
+                score = 0
+                bin_res = compute_similarity(base_func, query_func)
                 if bool(bin_res):
                     
                     score = (int)((bin_res['length']/base_func.len)*100)
 
                     score_result[b_idx][t_idx] = score
                     
-                    bin_res['tar_name'] = tar_func.name
-                    bin_res['tar_len'] = tar_func.len
+                    bin_res['query_name'] = query_func.name
+                    bin_res['query_len'] = query_func.len
                     bin_res['score'] = score
                     rank.append(copy.deepcopy(bin_res))
                     
-                    if score >= conf.RESULT_SCORE :
-                        log.log_count[0][1] += 1
-
+            log.log_score(score)
         log.log_tmp_result(base_func.name, base_func.len, rank) 
 
-    log.log_analysis_result()  
-    score_result = pd.DataFrame(score_result, index=checked_base_list, columns=checked_target_list)
-    score_result.to_csv(conf.RESULT_PATH+"/[%sVS%s]result.csv" %(base, target))
+    end_time = time.time() - start_time
+    log.log_analysis_result(end_time)  
+
+    score_result = pd.DataFrame(score_result, index=checked_base_list, columns=checked_query_list)
+    score_result.to_csv(conf.RESULT_PATH+"/[%sVS%s]result.csv" %(base, query))
+
+    return end_time
 
 
-def binclone_multiple_fast_mode(base, target) :
+def binclone_multiple_fast_mode(base, query) :
+
+    start_time = time.time()
 
     base_path = "%s/%s" %(conf.BASE_SET_PATH, base)
-    target_path  = "%s/%s" %(conf.BASE_SET_PATH, target)
+    query_path  = "%s/%s" %(conf.BASE_SET_PATH, query)
 
     base_list = bin.preprocessing(base_path)
-    target_list = bin.preprocessing(target_path)
+    query_list = bin.preprocessing(query_path)
 
     num_base = len(base_list)
-    num_tar = len(target_list)
+    num_query = len(query_list)
 
     unchecked_base_list = list()
-    unchecked_target_list = list()
+    unchecked_query_list = list()
 
     checked_base_list = list()
-    checked_target_list = list()
+    checked_query_list = list()
 
     if not os.path.isdir(conf.RESULT_PATH) :
         os.mkdir(conf.RESULT_PATH)
 
-    log.init_log_result(False, base, target)
+    log.init_log_result(False, base, query)
 
     for base_func in base_list[:] :
         if base_func.len < conf.WINDOW_SIZE :
@@ -147,52 +150,55 @@ def binclone_multiple_fast_mode(base, target) :
             checked_base_list.append("%s (%d)" %(base_func.name, base_func.len))
 
    
-    for tar_func in target_list[:] :
-        if tar_func.len < conf.WINDOW_SIZE :
-            unchecked_target_list.append("%s (%d)" %(tar_func.name, tar_func.len))
-            target_list.remove(tar_func)
+    for query_func in query_list[:] :
+        if query_func.len < conf.WINDOW_SIZE :
+            unchecked_query_list.append("%s (%d)" %(query_func.name, query_func.len))
+            query_list.remove(query_func)
         else :
-            checked_target_list.append("%s (%d)" %(tar_func.name, tar_func.len))
+            checked_query_list.append("%s (%d)" %(query_func.name, query_func.len))
 
     log.log_file_info(base, num_base, len(base_list), True)
-    log.log_file_info(target, num_tar, len(target_list), False)
+    log.log_file_info(query, num_query, len(query_list), False)
 
-    score_result = [["0 (0)"]*len(target_list) for i in range(len(base_list))]
-
-    log.log_count[0][0] = len(target_list) * len(base_list)
-    log.log_count[1][0] = len(target_list) * len(base_list)
-    log.log_count[0][1] = 0
-    log.log_count[1][1] = 0
+    score_result = [["0 (0)"]*len(query_list) for i in range(len(base_list))]
 
     for b_idx in tqdm(range(len(base_list)), desc="base", ncols=100) :
         base_func = base_list[b_idx]
-        for t_idx in tqdm(range(len(target_list)), desc="\ttarget", ncols=100, leave=False) :
-            tar_func = target_list[t_idx]
-            if conf.EXCLUDING_LENGTH_DIFFERENCE and ut.length_check(base_func.len, tar_func.len) : 
-                continue
+        for t_idx in tqdm(range(len(query_list)), desc="\tquery", ncols=100, leave=False) :
+            query_func = query_list[t_idx]
+
+            if conf.EXCLUDING_LENGTH_DIFFERENCE and ut.length_check(base_func.len, query_func.len) : 
+                score = 0
+                r_score = 0
 
             else :
-                bin_res = compute_similarity(base_func, tar_func)
+                bin_res = compute_similarity(base_func, query_func)
+                score = 0
+                r_score = 0
+
                 if bool(bin_res):
                     
                     score = (int)((bin_res['length']/base_func.len)*100)
-                    r_score = (int)((bin_res['length']/tar_func.len)*100)
+                    r_score = (int)((bin_res['length']/query_func.len)*100)
 
                     score_result[b_idx][t_idx] = "%s (%s)"%(score, r_score)
-                    
-                    if score >= conf.RESULT_SCORE :
-                        log.log_count[0][1] += 1
-                    
-                    if r_score >= conf.RESULT_SCORE :
-                        log.log_count[1][1] += 1
 
-    log.log_analysis_result()  
-    score_result = pd.DataFrame(score_result, index=checked_base_list, columns=checked_target_list)
-    score_result.to_csv(conf.RESULT_PATH+"/[%sVS%s]F_result.csv" %(base, target))
+            log.log_score(score)
+            log.log_score(r_score, mode = "fast")
+             
+                   
+    end_time = time.time() - start_time
+    log.log_analysis_result(end_time)
+    score_result = pd.DataFrame(score_result, index=checked_base_list, columns=checked_query_list)
+    score_result.to_csv(conf.RESULT_PATH+"/[%sVS%s]F_result.csv" %(base, query))
+
+    return end_time
 
 
 
 def binclone_single_mode(file) :
+
+    start_time = time.time()
 
     file_path = "%s/%s" %(conf.BASE_SET_PATH, file)
 
@@ -228,13 +234,13 @@ def binclone_single_mode(file) :
     for idx in tqdm(range(len(func_list)), desc="base", ncols=100) :
         rank = list()
         base_func = func_list[idx]
-        for jdx in tqdm(range(len(func_list)), desc="\ttarget", leave=False, ncols=100) :
-            tar_func = func_list[jdx]
+        for jdx in tqdm(range(len(func_list)), desc="\tquery", leave=False, ncols=100) :
+            query_func = func_list[jdx]
             
-            if conf.EXCLUDING_LENGTH_DIFFERENCE and ut.length_check(base_func.len, tar_func.len) : 
+            if conf.EXCLUDING_LENGTH_DIFFERENCE and ut.length_check(base_func.len, query_func.len) : 
                 log.log_score(0)
                 continue
-            if base_func.name == tar_func.name : 
+            if base_func.name == query_func.name : 
                 log.log_score(0)
                 continue
             
@@ -242,49 +248,50 @@ def binclone_single_mode(file) :
                 score = score_result[idx][jdx]
                 bin_res = dict()
                 if base_func.name in backup :
-                    if tar_func.name in backup[base_func.name].keys() :
-                        bin_res = copy.deepcopy(backup[base_func.name][tar_func.name])
+                    if query_func.name in backup[base_func.name].keys() :
+                        bin_res = copy.deepcopy(backup[base_func.name][query_func.name])
                 
             else :
-                bin_res = compute_similarity(base_func, tar_func)
+                bin_res = compute_similarity(base_func, query_func)
                 visit[jdx][idx] = True
                 visit[idx][jdx] = True
                 score = 0
 
                 if bool(bin_res):
                     score = (int)(( bin_res['length']/base_func.len)*100)
-                    r_score = (int)(( bin_res['length']/tar_func.len)*100)
+                    r_score = (int)(( bin_res['length']/query_func.len)*100)
                     
                     score_result[idx][jdx] = score
                     score_result[jdx][idx] = r_score
 
                     tmp = dict()
-                    tmp["base_start"] = bin_res["target_start"]
-                    tmp["target_start"] = bin_res["base_start"]
+                    tmp["base_start"] = bin_res["query_start"]
+                    tmp["query_start"] = bin_res["base_start"]
                     tmp["length"] = bin_res["length"]
-                    if not tar_func.name in backup :
-                        backup[tar_func.name] = dict()
+                    if not query_func.name in backup :
+                        backup[query_func.name] = dict()
                                   
-                    backup[tar_func.name][base_func.name] = copy.deepcopy(tmp)
+                    backup[query_func.name][base_func.name] = copy.deepcopy(tmp)
             
             if bool(bin_res) :
-                bin_res['tar_name'] = tar_func.name
-                bin_res['tar_len'] = tar_func.len
+                bin_res['query_name'] = query_func.name
+                bin_res['query_len'] = query_func.len
                 bin_res['score'] = score
                 rank.append(copy.deepcopy(bin_res))
+           
             log.log_score(score)
             if conf.EXIST_FILTED_FUNCTIONS :
-                if (base_func.name in filted_func) or (tar_func.name in filted_func) :
-                    log.log_score(score, True)
+                if (base_func.name in filted_func) or (query_func.name in filted_func) :
+                    log.log_score(score, mode = 'filted')
 
         log.log_tmp_result(base_func.name, base_func.len, rank)
     
-    
-    log.log_analysis_result()
+    end_time = time.time() - start_time
+    log.log_analysis_result(end_time)
     score_result = pd.DataFrame(score_result, index=checked_func_list, columns=checked_func_list)
     score_result.to_csv(conf.RESULT_PATH+"/[%s]result.csv" %(base))
   
-
+    return end_time
 
 
 
@@ -292,37 +299,50 @@ def binclone_single_mode(file) :
 if __name__ == "__main__" :
 
 
+    total_time = 0
+
     if conf.MULTIPLE_COMPARE_MODE :
-            
+        backup_single_mode = conf.SINGLE_COMPARE_MODE
+        backup_exclude_mode = conf.EXCLUDING_LENGTH_DIFFERENCE
+        conf.SINGLE_COMPARE_MODE = False
+        conf.EXIST_FILTED_FUNCTIONS = False
 
         base_list = ut.listdir(conf.BASE_SET_PATH)
-        target_list = ut.listdir(conf.TARGET_SET_PATH)
+        query_list = ut.listdir(conf.QUERY_SET_PATH)
 
         if conf.MULTIPLE_FAST_MODE :
             for idx in range(len(base_list)) :
                 for jdx in range(idx + 1, len(base_list)) :
-                    start_time = time.time()
                     print("Similarity check (%s vs %s) ----------------" %(base_list[idx], base_list[jdx]))
-                    binclone_multiple_fast_mode(base_list[idx], base_list[jdx])
-                    print("time : %f\n\n" %(time.time() - start_time))                    
+                    a_time = binclone_multiple_fast_mode(base_list[idx], base_list[jdx])
+                    print("time : %f\n\n" %a_time)                    
+                    total_time += a_time
         else :
             for base in base_list :
-                for target in target_list :
-                    if(base == target) :
+                for query in query_list :
+                    if(base == query) :
                         continue
-                    start_time = time.time()
-                    print("Similarity check (%s vs %s) ----------------" %(base, target))
-                    binclone_multiple_mode(base, target)
-                    print("time : %f\n\n" %(time.time() - start_time))
+                    print("Similarity check (%s vs %s) ----------------" %(base, query))
+                    a_time =binclone_multiple_mode(base, query)
+                    print("time : %f\n\n" %a_time)
+                    total_time += a_time
 
+        conf.SINGLE_COMPARE_MODE = backup_single_mode
+        conf.EXCLUDING_LENGTH_DIFFERENCE = backup_exclude_mode
 
     if conf.SINGLE_COMPARE_MODE :
+
+        conf.MULTIPLE_COMPARE_MODE = False
+        conf.MULTIPLE_FAST_MODE = False
 
         base_list = ut.listdir(conf.BASE_SET_PATH)
         for base in base_list :
 
-            start_time = time.time()
             print("Similarity check (%s) ----------------" %(base))
-            binclone_single_mode(base)
-            print("time : %f\n\n" %(time.time() - start_time))
+            a_time = binclone_single_mode(base)
+            print("time : %f\n\n" %a_time)
+            total_time += a_time
 
+
+    print("\n\nAnalysis completed successfully\n")
+    print("Total analysis time : %.2f\n" %total_time)

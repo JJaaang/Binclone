@@ -52,7 +52,7 @@ def filted_functions(file) :
     file_path = conf.FILTED_FUNCTIONS_PATH + "/" + file + ".txt"
     filted_func = list()
     if os.path.isfile(file_path) :
-        with open(file_path, 'r') as fp :
+        with open(file_path, 'r', encoding='utf8') as fp :
             func_list = fp.readlines()
             filted_func = list(map(lambda s : s.strip(), func_list))
     

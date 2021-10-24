@@ -1,3 +1,4 @@
+from re import L
 import Info as info
 import Config as conf
 import os
@@ -13,7 +14,6 @@ global log_MEM
 global log_VAL
 global log_ADDR
 global log_mnemonic
-global log_score
 
 global log_path
 
@@ -21,9 +21,10 @@ global fp
 global tmp_path
 
 global log_count
+global log_r_count
 global log_filted_count
-global log_single_mode
-global log_multiple_mode
+global base_name
+global query_name
 
 def init_norm_log(path) : 
     global log_REGGen
@@ -51,13 +52,6 @@ def init_norm_log(path) :
     log_path = "%s\\%s" %(conf.LOG_PATH, folder)
 
 
-    
-
-def init_log(path):
-    global log_score
-    log_score = list()
-
-
 def make_norm_log(func_name, norm_lines) :
 
     global log_path
@@ -71,7 +65,7 @@ def make_norm_log(func_name, norm_lines) :
     if not os.path.isdir(log_path) :
         os.mkdir(log_path)
 
-    log_fp = open('%s\\%s' %(log_path, func_name), 'w')
+    log_fp = open('%s\\%s' %(log_path, func_name), 'w', encoding='utf8')
     log_fp.write("Normalizing\n")
     log_fp.write("function name : %s\n\n" %norm_lines[0])
 
@@ -121,49 +115,47 @@ def make_norm_log(func_name, norm_lines) :
 
 
 
-def init_log_result(single_mode, base, target = False) :
+def init_log_result(single_mode, base, query = None) :
 
     global fp
     global tmp_path
     global log_count 
+    global log_r_count
     global log_filted_count
-    global log_single_mode
-    global log_multiple_mode
+    global base_name
+    global query_name
     
-    if single_mode :
-        log_single_mode = True
-        log_multiple_mode = False
-    
-    else :
-        log_single_mode = False
-        log_multiple_mode = True
-    
-    if log_single_mode :
+    base_name = base
+    query_name = query
+
+    if conf.SINGLE_COMPARE_MODE :
+        
         log_count = [0]*11
         log_filted_count = [0]*11
-        fp = open(conf.RESULT_PATH+"\\[%s]result.txt" %base, 'w')  
-
+        fp = open(conf.RESULT_PATH+"\\[%s]result.txt" %base_name, 'w', encoding='utf8') 
+    
     else :
         if conf.MULTIPLE_FAST_MODE :
-            log_count = [[0,0],[0,0]]
-            fp = open(conf.RESULT_PATH+"\\[%sVs%s]F_result.txt" %(base, target), 'w')  
+            log_count = [0]*11
+            log_r_count = [0]*11
+            fp = open(conf.RESULT_PATH+"\\[%sVs%s]F_result.txt" %(base_name, query_name), 'w', encoding='utf8')  
 
         else :
-            log_count = [[0]*2]
-            fp = open(conf.RESULT_PATH+"\\[%sVs%s]result.txt" %(base, target), 'w')  
+            log_count = [0]*11            
+            fp = open(conf.RESULT_PATH+"\\[%sVs%s]result.txt" %(base_name, query_name), 'w', encoding='utf8')  
 
   
-    fp.write('{:#<85}'.format("##### BINCLONE RESULT "))
+    fp.write('{:#<100}'.format("##### BINCLONE RESULT "))
     fp.write("\n")
     
     fp.write("  * Configuration Information\n")
     
-    if log_single_mode :
-        fp.write("\tFile Path : %s\%s\n" %(conf.BASE_SET_PATH, base))
+    if conf.SINGLE_COMPARE_MODE :
+        fp.write("\tFile Path : %s\\%s\n" %(conf.BASE_SET_PATH, base_name))
         
     else :
-        fp.write("\tBase File Path : %s\%s\n" %(conf.BASE_SET_PATH, base))
-        fp.write("\tTarget File Path : %s\%s\n" %(conf.TARGET_SET_PATH, target))
+        fp.write("\tBase File Path : %s\\%s\n" %(conf.BASE_SET_PATH, base_name))
+        fp.write("\tTarget File Path : %s\\%s\n" %(conf.QUERY_SET_PATH, query_name))
 
     fp.write("\tResult Path : %s\n" %conf.RESULT_PATH)
     fp.write("\tWindow size : %d\n" %conf.WINDOW_SIZE)
@@ -174,7 +166,7 @@ def init_log_result(single_mode, base, target = False) :
         fp.write("\tthe similarity check is not performed\n")
     
     else :
-        fp.write("\n\tThe analxysis if performed regardless of length differences between functions\n")
+        fp.write("\n\tThe analysis if performed regardless of length differences between functions\n")
 
     tmp_path = conf.RESULT_PATH+"\\tmp.txt"
     if os.path.isfile(tmp_path) :
@@ -184,16 +176,14 @@ def init_log_result(single_mode, base, target = False) :
 def log_file_info(filename, total, filted, isBase) :
     
     global fp
-    global log_single_mode
-    global log_multiple_mode
 
-    if log_multiple_mode :
+    if conf.MULTIPLE_COMPARE_MODE :
         if isBase :
             fp.write("\n  * Base File Information\n")
         else :
             fp.write("\n  * Target File Information\n")
     else :
-        fp.write("  * File Information\n")
+        fp.write("\n  * File Information\n")
 
     fp.write("\tFile name : %s\n" %filename)
     fp.write("\tTotal Number of Functions : %d\n" %total)
@@ -203,95 +193,110 @@ def log_tmp_result(name, length, rank) :
         
         global tmp_path
         noFunc = True
-        with open(tmp_path, 'a') as tmp_fp :
+
+        with open(tmp_path, 'a', encoding='utf8') as tmp_fp :
             rank = sorted(rank, key=(lambda x: x['score']), reverse=True)
             st = '--- base function name: %s (LoC : %d) ' %(name,length)
             tmp_fp.write('{:-<65}'.format(st))
             tmp_fp.write("\n")
             for i in range(len(rank)) :
                 if rank[i]['score'] < conf.RESULT_SCORE : break
-                tmp_fp.write("\t%d. %s (LoC : %d)\n" %(i+1, rank[i]['tar_name'], rank[i]['tar_len']))
+                tmp_fp.write("\t%d. %s (LoC : %d)\n" %(i+1, rank[i]['query_name'], rank[i]['query_len']))
                 tmp_fp.write("\t\tScore : %d\n" %(rank[i]['score']))
                 tmp_fp.write("\t\tbase start line : %d\n" %rank[i]['base_start'])
-                tmp_fp.write("\t\ttarget start line : %d\n" %rank[i]['target_start'])
+                tmp_fp.write("\t\tquery start line : %d\n" %rank[i]['query_start'])
                 noFunc = False
         
             if noFunc :
                 tmp_fp.write("\tThere is no similar function!\n")
             tmp_fp.write("\n\n")    
-        
 
-def log_analysis_result(res1 = list()) :
+
+def log_processing_count(count_list, min) :
+
+    # [min, 100] score 
+    length = 10 - min + 1
+    res = [0] * (length)
+    tmp_res = [0] * (length)
+
+    #compute num per section
+    idx = length - 1
+    tmp_res[idx] = count_list[10]
+    idx -= 1
+
+    for i in reversed(range(min, 10)) :
+        tmp_res[idx] = tmp_res[idx+1] + count_list[i]
+        idx -= 1
+
+    #num of comparisons
+    total = 0
+    for cnt in count_list :
+        total += cnt
+    
+    #exclude num of comparisons(idx = 0)
+    for idx in range(0, length) :
+        if tmp_res[idx] == 0 :
+            per = 0
+        else :
+            per = float(tmp_res[idx]/total) * 100
+        
+        res[idx] = "%d (%.2f%%)" %(tmp_res[idx], per)
+
+    res.insert(0, total)
+    return res
+
+
+def log_analysis_result(time, min = 5) :
     global fp
     global tmp_path
     global log_count
+    global log_r_count
     global log_filted_count
-    global log_single_mode
-    global log_multiple_mode
+    global base_name
+    global query_name
 
 
     fp.write("\n\n")
-    fp.write('{:#<85}'.format("##### ANALYASIS RESULT "))
+    fp.write('{:#<100}'.format("##### ANALYASIS RESULT "))
     fp.write("\n  NOTE. Only results with a similarity score of * %d or higher * are output\n" %conf.RESULT_SCORE)
     fp.write("  If you want to adjust the score, change the RESULT_SCORE value in the Config.py\n\n")
 
-    fp.write('{:^40}'.format("Summary of Results"))
+    fp.write("  * Analysis time : %.2f\n\n" %time)
+
+    fp.write("  * Summary of Results")
     fp.write('\n')
-    if log_single_mode :
-        head = ["num of comparisons","60% ^", "70% ^", "80% ^", "90% ^", "100%"]
-        table = list()
-
-        item = [0]*6
-        tmp_item = [0]*6
-        tmp_item[5] = log_count[10]
-        idx = 4
-        total = 0
-        for i in reversed(range(6, 10)) :
-            tmp_item[idx] =  tmp_item[idx+1] + log_count[i]
-            idx -= 1
-
-        for i in range(len(log_count)) :
-            total += log_count[i] 
-        
-        item[0] = total
-        for idx in range(1, 6) :
-            if tmp_item[idx] == 0 :
-                per = 0
-            else :
-                per = float(tmp_item[idx]/total)*100
-
-            item[idx] = "%d (%.2f)" %(tmp_item[idx], per)
-
-        table.append(copy.deepcopy(item))
-
-        if conf.EXIST_FILTED_FUNCTIONS :
-            tmp_item = [0]*6
-            tmp_item[5] = log_filted_count[10]
-            idx = 4
-            for i in reversed(range(6, 10)) :
-                tmp_item[idx] =  tmp_item[idx+1] + log_filted_count[i]
-                idx -= 1
-            item[0] = "include filted func"
-            for idx in range(1, 6) :
-                if tmp_item[idx] == 0 :
-                    per = 0
-                else :
-                    per = float(tmp_item[idx]/total)*100
-                item[idx] = "%d (%.2f)" %(tmp_item[idx], per)
-            table.append(copy.deepcopy(item))
-        
-
-    else :
-        head = ["num of comparisons", "num of detected"]
-        table = log_count
-
+    
+    head = ["num of comparisons"]
+    for i in range(min, 11) :
+        head.append("%d%% ^" %(i*10))
+    
+    table = list()
+    table.append(log_processing_count(log_count, min))
+    
+    if not query_name == None :
+        fp.write("\n  base : %s, query %s\n" %(base_name, query_name))
     fp.write(tabulate(table, headers = head, tablefmt='pretty'))
 
     fp.write('\n')
     fp.write("\n")
 
+    if conf.MULTIPLE_COMPARE_MODE and conf.MULTIPLE_FAST_MODE :
+        table = list()
+        table.append(log_processing_count(log_r_count, min)) 
+        fp.write("  base : %s, query %s\n" %(query_name, base_name))
+        fp.write(tabulate(table, headers = head, tablefmt='pretty'))
+
+        fp.write('\n')
+        fp.write("\n")    
+
+    elif conf.SINGLE_COMPARE_MODE and conf.EXIST_FILTED_FUNCTIONS :
+        table = list()
+        fp.write("Include filted function\n")
+        table.append(log_processing_count(log_filted_count, min))
+    
+    
     if os.path.isfile(tmp_path) :
-        with open(tmp_path, 'r') as tmp_fp :        
+        with open(tmp_path, 'r', encoding='utf8') as tmp_fp :        
             lines = tmp_fp.readlines()
 
             for line in lines : 
@@ -300,21 +305,28 @@ def log_analysis_result(res1 = list()) :
             fp.close()
 
             os.system("rm %s" %tmp_path)
-
-def log_score(score, filted = False) :
-    if filted :
-        if score == 0 :
-            log_filted_count[0] += 1
-        else :
-            log_filted_count[int(score/10)] += 1
-
+    
     else :
-        if score == 0 :
-            log_count[0] += 1
-        else :
-            log_count[int(score/10)] += 1
-                
+        fp.close()
 
-        
+
+def log_score(score, mode = "normal") :
+    
+    global log_count
+    global log_r_count
+    global log_filted_count
+    
+    if mode == "normal" :
+        log_list = log_count
+    elif mode == "filted" :
+        log_list = log_filted_count
+    elif mode == "fast" :
+        log_list = log_r_count
+
+    if score == 0 :
+        log_list[0] += 1
+    else :
+        log_list[int(score/10)] += 1
+ 
 
 

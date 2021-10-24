@@ -63,8 +63,6 @@ def preprocessing(path) :
     and return list of FuncitonInfo class object 
     """
     
-    
-    norm_function_list = list()
     func_info_list = list()
 
     function_list = ut.listdir(path)
@@ -86,9 +84,9 @@ def preprocessing(path) :
 
 
 
-def combine_feature(base_func, target_func) :
+def combine_feature(base_func, query_func) :
     global M_idx_to_feature
-    M_idx_to_feature = list(base_func.features | target_func.features)
+    M_idx_to_feature = list(base_func.features | query_func.features)
     
 
 
@@ -121,12 +119,12 @@ def make_feature_vector(function):
 
 
 
-def compute_median(base_FV_list, tar_FV_list) :
+def compute_median(base_FV_list, query_FV_list) :
     
     global M_median_vector
 
 
-    if not len(base_FV_list[0]) == len(tar_FV_list[0]) :
+    if not len(base_FV_list[0]) == len(query_FV_list[0]) :
         print("compute_median functio() - ERROR!!")
         exit()
 
@@ -135,14 +133,14 @@ def compute_median(base_FV_list, tar_FV_list) :
     
     for fidx in range(feature_num) :
         
-        frequency_list = [0]*(len(base_FV_list)+len(tar_FV_list))
+        frequency_list = [0]*(len(base_FV_list)+len(query_FV_list))
         lidx = 0
         
         for FV in base_FV_list :
             frequency_list[lidx] = FV[fidx]
             lidx += 1
 
-        for FV2 in tar_FV_list :
+        for FV2 in query_FV_list :
             frequency_list[lidx] = FV2[fidx]
             lidx += 1
         
@@ -174,22 +172,22 @@ def make_binary_vector(FV_list) :
     return BV_list
 
 
-def compare_region_to_region(base_BV_list, tar_BV_list) :
+def compare_region_to_region(base_BV_list, query_BV_list) :
     
     base_len = len(base_BV_list)
-    tar_len = len(tar_BV_list)
+    query_len = len(query_BV_list)
     feature_num = len(base_BV_list[0])
 
-    result_matrix = [[0]*tar_len for i in range(base_len)]
+    result_matrix = [[0]*query_len for i in range(base_len)]
     num_of_feature = len(base_BV_list[0])
     
     for b_idx in range(base_len) :
-        for t_idx in range(tar_len) :
+        for t_idx in range(query_len) :
 
             cnt = 0
             
             for idx in range(feature_num) :
-                if base_BV_list[b_idx][idx] == tar_BV_list[t_idx][idx] :
+                if base_BV_list[b_idx][idx] == query_BV_list[t_idx][idx] :
                     cnt += 1
             
             if cnt > 0 :
@@ -204,11 +202,11 @@ def compare_region_to_region(base_BV_list, tar_BV_list) :
 def clone_merger(result_matrix) :
 
     base_len = len(result_matrix)
-    tar_len = len(result_matrix[0])
+    query_len = len(result_matrix[0])
     max_len = 0
 
     ut.CM_result_matrix = result_matrix
-    ut.CM_visit = [[0]*tar_len for i in range(base_len)]
+    ut.CM_visit = [[0]*query_len for i in range(base_len)]
 
     # The elements of this list are in the form of a dictionary with
     # two starting line numbers and lenth as keys
@@ -219,10 +217,10 @@ def clone_merger(result_matrix) :
         # Maximum possible length is less than max_len
         if base_len - max_len < b_idx : break
         
-        for t_idx in range(tar_len) :
+        for t_idx in range(query_len) :
             
             # Maximum possible length is less than max_len
-            if tar_len - max_len < t_idx : break
+            if query_len - max_len < t_idx : break
             if ut.CM_visit[b_idx][t_idx] == 1 : continue
             else :
                 ut.CM_visit[b_idx][t_idx] == 1
@@ -232,7 +230,7 @@ def clone_merger(result_matrix) :
                 if tmp_len > max_len :
                     max_len = tmp_len
                     result["base_start"] = b_idx
-                    result["target_start"] = t_idx
+                    result["query_start"] = t_idx
                     result["length"] = max_len + conf.WINDOW_SIZE - 1
 
     return result
