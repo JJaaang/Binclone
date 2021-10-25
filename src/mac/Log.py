@@ -258,9 +258,8 @@ def log_analysis_result(time, min = 5) :
 
     fp.write("\n\n")
     fp.write('{:#<100}'.format("##### ANALYASIS RESULT "))
-    fp.write("\n  NOTE. Only results with a similarity score of * %d or higher * are output\n" %conf.RESULT_SCORE)
-    fp.write("  If you want to adjust the score, change the RESULT_SCORE value in the Config.py\n\n")
 
+    fp.write("\n")
     fp.write("  * Analysis time : %.2f\n\n" %time)
 
     fp.write("  * Summary of Results")
@@ -274,7 +273,7 @@ def log_analysis_result(time, min = 5) :
     table.append(log_processing_count(log_count, min))
     
     if not query_name == None :
-        fp.write("\n  base : %s, query %s\n" %(base_name, query_name))
+        fp.write("    base : %s, query %s\n" %(base_name, query_name))
     fp.write(tabulate(table, headers = head, tablefmt='pretty'))
 
     fp.write('\n')
@@ -283,7 +282,7 @@ def log_analysis_result(time, min = 5) :
     if conf.MULTIPLE_COMPARE_MODE and conf.MULTIPLE_FAST_MODE :
         table = list()
         table.append(log_processing_count(log_r_count, min)) 
-        fp.write("  base : %s, query %s\n" %(query_name, base_name))
+        fp.write("    base : %s, query %s\n" %(query_name, base_name))
         fp.write(tabulate(table, headers = head, tablefmt='pretty'))
 
         fp.write('\n')
@@ -294,8 +293,10 @@ def log_analysis_result(time, min = 5) :
         fp.write("Include filted function\n")
         table.append(log_processing_count(log_filted_count, min))
     
-    
+
     if os.path.isfile(tmp_path) :
+        fp.write("NOTE. Only results with a similarity score of * %d or higher * are output\n" %conf.RESULT_SCORE)
+        fp.write("If you want to adjust the score, change the RESULT_SCORE value in the Config.py\n\n")
         with open(tmp_path, 'r', encoding='utf8') as tmp_fp :        
             lines = tmp_fp.readlines()
 
